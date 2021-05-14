@@ -1,12 +1,21 @@
+import os
 import copy
+import utils
+import matplotlib
 import numpy as np
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score, precision_recall_curve, auc
 
 
 class KinshipEvaluator:
 
-    def __init__(self, log_path):
+    def __init__(self, set_name, pair, log_path, fold=None):
+        plt.ioff()
+        self.set_name = set_name
+        self.pair = pair
         self.log_path = log_path
+        self.fold = fold
         self.model_scores = list()
         self.labels = list()
         self.best_metrics = {
@@ -25,10 +34,6 @@ class KinshipEvaluator:
             "recall": list(),
             "precision": list(),
             "f1-score": list(),
-
-            "precision_curve": list(),
-            "recall_curve": list(),
-            "thresholds": list(),
             "auc": list()
         }
 
@@ -65,3 +70,22 @@ class KinshipEvaluator:
             self.metrics_hist[key].append(metrics[key])
 
         return metrics
+
+    def save_hist(self):
+
+        title = f"{self.pair.upper()} {self.set_name} Metrics"
+        fig_path = os.path.join(self.log_path, f"{self.set_name}_{self.pair}_fold_{self.fold}.png")
+        if self.fold is not None:
+            title += f" Fold {self.fold}"
+
+        fig = plt.figure()
+        plt.title(title)
+        plt.plot(self.metrics_hist["acc"], color="tomato", label="Accuracy")
+        plt.plot(self.metrics_hist["f1-score"], color="turquoise", label="F1-Score", linestyle="--")
+        plt.plot(self.metrics_hist["auc"], color="gold", label="AUC", linestyle=":")
+        plt.legend()
+        plt.grid(color='black', linestyle='--', linewidth=1, alpha=0.15)
+        fig.savefig(fig_path)
+        plt.close()
+        utils.save_json(os.path.join(self.log_path, f"{self.set_name}_hist_{self.pair}_fold_{self.fold}.json"),
+                        self.metrics_hist)
