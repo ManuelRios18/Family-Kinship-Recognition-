@@ -126,6 +126,7 @@ class KinshipTrainer:
                     if model_score > best_score:
                         best_score = model_score
                         test_evaluator.save_best_metrics()
+                        self.save_model(model, f"best_model_{pair_type}_fold_{fold}")
                         print(f"NEW best {self.target_metric} score {best_score} for pair {pair_type} in fold {fold}")
                     train_evaluator.save_hist()
                     test_evaluator.save_hist()
@@ -134,6 +135,11 @@ class KinshipTrainer:
                 pair_evaluators.append(test_evaluator)
             pair_evuator = KinshipEvaluator(set_name="Testing", pair=pair_type, log_path=self.logs_dir)
             pair_evuator.get_kinface_pair_metrics(pair_evaluators, pair_type)
+
+    def save_model(self, model, model_name):
+        with open(f"{self.logs_dir}/{model_name}.pth", 'wb') as fp:
+            state = model.state_dict()
+            torch.save(state, fp)
 
     def train(self):
         if self.dataset == "kinfacew":
