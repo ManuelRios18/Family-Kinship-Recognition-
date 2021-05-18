@@ -1,9 +1,9 @@
 from trainers.kinship_trainer import KinshipTrainer
 
 exp_sufix = "small_face_model"
-n_epochs = 150
+n_epochs = 45
 lr = 0.001
-batch_size = 16
+batch_size = 32
 momentum = 0.9
 weight_decay = 0.005
 gpu_id = 0
@@ -11,7 +11,9 @@ optimizer_name = "SGD"
 target_metric = "acc"
 
 dataset = "kinfacew"
+# dataset = "fiw"
 dataset_path = "/home/manuel/Documents/masters/Computer Vision/YGYME/data/"
+# dataset_path = "/media/manuel/New Volume/Computer Vision/fiw"
 kin_pairs = ["fd", "ms", "md", "fs"]
 kinfacew_set_name = "KinFaceW-II"
 kinfacew_n_folds = 5

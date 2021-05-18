@@ -79,10 +79,11 @@ class KinshipEvaluator:
     def save_hist(self):
 
         title = f"{self.pair.upper()} {self.set_name} Metrics"
-        fig_path = os.path.join(self.log_path, f"{self.pair.lower()}_hist_{self.set_name.lower()}_fold_{self.fold}.png")
+        log_name = f"{self.pair.lower()}_hist_{self.set_name.lower()}"
         if self.fold is not None:
             title += f" Fold {self.fold}"
-
+            log_name += f"_fold_{self.fold}"
+        fig_path = os.path.join(self.log_path, f"{log_name}.png")
         fig = plt.figure()
         plt.title(title)
         plt.plot(self.metrics_hist["acc"], color="tomato", label="Accuracy")
@@ -95,15 +96,17 @@ class KinshipEvaluator:
         fig.savefig(fig_path)
         plt.close()
         utils.save_json(os.path.join(self.log_path,
-                                     f"{self.pair.lower()}_hist_{self.set_name.lower()}_fold_{self.fold}.json"),
+                                     f"{log_name}.json"),
                         self.metrics_hist)
 
     def save_best_metrics(self):
         title = f"{self.pair.upper()} {self.set_name} Precision Recall Curve"
-        fig_path = os.path.join(self.log_path, f"{self.pair.lower()}_{self.set_name.lower()}_fold_{self.fold}.png")
+        log_name = f"{self.pair.lower()}_{self.set_name.lower()}"
         if self.fold is not None:
             title += f" Fold {self.fold}"
+            log_name += f"_fold_{self.fold}"
 
+        fig_path = os.path.join(self.log_path, f"{log_name}.png")
         fscore = (2 * self.best_metrics["precision_curve"] * self.best_metrics["recall_curve"]) / \
                  (self.best_metrics["precision_curve"] + self.best_metrics["recall_curve"])
         ix = np.argmax(fscore)
@@ -129,9 +132,7 @@ class KinshipEvaluator:
         best_metrics["recall_curve"] = list(map(float, best_metrics["recall_curve"]))
         best_metrics["thresholds"] = list(map(float, best_metrics["thresholds"]))
 
-        utils.save_json(os.path.join(self.log_path,
-                                     f"{self.pair.lower()}_{self.set_name.lower()}_fold_{self.fold}.json"),
-                        best_metrics)
+        utils.save_json(os.path.join(self.log_path, f"{log_name}.json"), best_metrics)
 
     def get_kinface_pair_metrics(self, evaluators, pair_type):
         accs, recalls, precisions, f_scores, scores, labels = list(), list(), list(), list(), list(), list()

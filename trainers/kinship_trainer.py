@@ -8,6 +8,7 @@ import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import transforms
+from datasets.fiw_dataset import FIWDataset
 from evaluator.evaluator import KinshipEvaluator
 from models.small_face_model import SmallFaceModel
 from datasets.kinfacew_loader_gen import KinFaceWLoaderGenerator
@@ -64,11 +65,14 @@ class KinshipTrainer:
 
     def get_transformers(self):
         transformer_train = transforms.Compose([transforms.ToPILImage(),
+                                                transforms.Resize((64, 64)),
                                                 transforms.RandomGrayscale(0.3),
                                                 transforms.RandomRotation([-8, +8]),
                                                 transforms.ToTensor(),
                                                 transforms.RandomHorizontalFlip()])
-        transformer_test = transforms.Compose([transforms.ToPILImage(), transforms.ToTensor()])
+        transformer_test = transforms.Compose([transforms.ToPILImage(),
+                                               transforms.Resize((64, 64)),
+                                               transforms.ToTensor()])
 
         return transformer_train, transformer_test
 
@@ -136,6 +140,38 @@ class KinshipTrainer:
             pair_evuator = KinshipEvaluator(set_name="Testing", pair=pair_type, log_path=self.logs_dir)
             pair_evuator.get_kinface_pair_metrics(pair_evaluators, pair_type)
 
+    def train_fiw(self):
+        for pair_type in self.kin_pairs:
+            train_loader = torch.utils.data.DataLoader(FIWDataset(self.dataset_path, pair_type,
+                                                                  "train",
+                                                                  self.transformer_train),
+                                                       batch_size=self.batch_size,
+                                                       shuffle=True, num_workers=4)
+            test_loader = torch.utils.data.DataLoader(FIWDataset(self.dataset_path, pair_type,
+                                                                 "val", self.transformer_test),
+                                                      batch_size=self.batch_size,
+                                                      shuffle=True, num_workers=4)
+            print(f"STARTING training for pair {pair_type}")
+            best_score = -1
+            model = self.load_model()
+            model.to(self.device)
+            optimizer = self.load_optimizer(model)
+            criterion = self.load_criterion()
+            train_evaluator = KinshipEvaluator(set_name="Training", pair=pair_type, log_path=self.logs_dir)
+            test_evaluator = KinshipEvaluator(set_name="Testing", pair=pair_type, log_path=self.logs_dir)
+            for epoch in range(1, self.n_epochs + 1):
+                self.train_epoch(model, optimizer, criterion, epoch, train_loader, train_evaluator)
+                model_score = self.val_epoch(model, epoch, test_loader, test_evaluator)
+                if model_score > best_score:
+                    best_score = model_score
+                    test_evaluator.save_best_metrics()
+                    self.save_model(model, f"best_model_{pair_type}")
+                    print(f"NEW best {self.target_metric} score {best_score} for pair {pair_type}")
+                train_evaluator.save_hist()
+                test_evaluator.save_hist()
+            print(f"FINISHING training for pair {pair_type}"
+                  f"best {self.target_metric} score {best_score}")
+
     def save_model(self, model, model_name):
         with open(f"{self.logs_dir}/{model_name}.pth", 'wb') as fp:
             state = model.state_dict()
@@ -145,7 +181,7 @@ class KinshipTrainer:
         if self.dataset == "kinfacew":
             self.train_kinfacew()
         else:
-            print("No implemented yet")
+            self.train_fiw()
 
     def load_model(self):
 
