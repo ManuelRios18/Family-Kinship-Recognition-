@@ -11,6 +11,7 @@ from torchvision import transforms
 from datasets.fiw_dataset import FIWDataset
 from evaluator.evaluator import KinshipEvaluator
 from models.small_face_model import SmallFaceModel
+from models.small_siamese_face_model import SmallSiameseFaceModel
 from datasets.kinfacew_loader_gen import KinFaceWLoaderGenerator
 
 
@@ -187,6 +188,8 @@ class KinshipTrainer:
 
         if self.model_name == "small_face_model":
             model = SmallFaceModel()
+        elif self.model_name == "small_siamese_face_model":
+            model = SmallSiameseFaceModel()
         else:
             raise Exception("Unkown model")
 

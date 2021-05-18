@@ -1,6 +1,6 @@
 from trainers.kinship_trainer import KinshipTrainer
 
-exp_sufix = "small_face_model"
+
 n_epochs = 45
 lr = 0.001
 batch_size = 32
@@ -19,7 +19,10 @@ kinfacew_set_name = "KinFaceW-II"
 kinfacew_n_folds = 5
 
 
-model_name = "small_face_model"
+# model_name = "small_face_model"
+model_name = "small_siamese_face_model"
+exp_sufix = model_name
+
 trainer = KinshipTrainer(model_name=model_name, optimizer_name=optimizer_name, lr=lr, momentum=momentum,
                          weight_decay=weight_decay,  n_epochs=n_epochs, dataset=dataset, dataset_path=dataset_path,
                          kin_pairs=kin_pairs, batch_size=batch_size, exp_sufix=exp_sufix, gpu_id=gpu_id,
