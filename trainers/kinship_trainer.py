@@ -51,6 +51,11 @@ class KinshipTrainer:
 
     def create_log_dir(self):
         logs_dir = os.path.join("logs", self.exp_sufix + f"_{self.dataset}")
+        if self.dataset == "kinfacew":
+            sufix = "_II"
+            if self.kinfacew_set_name == "KinFaceW-I":
+                sufix = "_I"
+            logs_dir += sufix
         if os.path.isdir(logs_dir):
             shutil.rmtree(logs_dir)
         os.mkdir(logs_dir)
@@ -81,7 +86,7 @@ class KinshipTrainer:
             optimizer.step()
             output = torch.sigmoid(output)
             evaluator.add_batch(list(output.detach().cpu().numpy()), list(labels.detach().cpu().numpy()))
-        metrics = evaluator.get_metrics()
+        metrics = evaluator.get_metrics(self.target_metric)
 
     def val_epoch(self, model, epoch, val_loader, evaluator):
         evaluator.reset()
@@ -92,13 +97,14 @@ class KinshipTrainer:
             output = model(parent_image.float(), children_image.float()).squeeze(1)
             output = torch.sigmoid(output)
             evaluator.add_batch(list(output.detach().cpu().numpy()), list(labels.detach().cpu().numpy()))
-        metrics = evaluator.get_metrics()
+        metrics = evaluator.get_metrics(self.target_metric)
         return metrics[self.target_metric]
 
     def train_kinfacew(self):
         kin_loader_gen = KinFaceWLoaderGenerator(dataset_name=self.kinfacew_set_name,
                                                  dataset_path=self.dataset_path)
         for pair_type in self.kin_pairs:
+            pair_evaluators = list()
             for fold in range(1, self.kinfacew_n_folds+1):
                 test_loader, train_loader = kin_loader_gen.get_data_loader(fold=fold, batch_size=self.batch_size,
                                                                            pair_type=pair_type,
@@ -119,11 +125,15 @@ class KinshipTrainer:
                     model_score = self.val_epoch(model, epoch, test_loader, test_evaluator)
                     if model_score > best_score:
                         best_score = model_score
+                        test_evaluator.save_best_metrics()
                         print(f"NEW best {self.target_metric} score {best_score} for pair {pair_type} in fold {fold}")
                     train_evaluator.save_hist()
                     test_evaluator.save_hist()
                 print(f"FINISHING training for pair {pair_type} fold {fold} "
                       f"best {self.target_metric} score {best_score}")
+                pair_evaluators.append(test_evaluator)
+            pair_evuator = KinshipEvaluator(set_name="Testing", pair=pair_type, log_path=self.logs_dir)
+            pair_evuator.get_kinface_pair_metrics(pair_evaluators, pair_type)
 
     def train(self):
         if self.dataset == "kinfacew":

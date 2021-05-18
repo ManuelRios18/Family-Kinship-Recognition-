@@ -1,4 +1,5 @@
 import os
+import json
 import copy
 import utils
 import matplotlib
@@ -36,6 +37,8 @@ class KinshipEvaluator:
             "f1-score": list(),
             "auc": list()
         }
+        self.best_model_scores = None
+        self.best_model_labels = None
 
     def reset(self):
         self.model_scores = list()
@@ -52,19 +55,21 @@ class KinshipEvaluator:
         predictions = np.zeros_like(probas)
         predictions[probas > 0.5] = 1
 
-        metrics["acc"] = accuracy_score(targets, predictions)
-        metrics["recall"] = recall_score(targets, predictions)
-        metrics["precision"] = precision_score(targets, predictions)
-        metrics["f1-score"] = f1_score(targets, predictions)
+        metrics["acc"] = float(accuracy_score(targets, predictions))
+        metrics["recall"] = float(recall_score(targets, predictions))
+        metrics["precision"] = float(precision_score(targets, predictions))
+        metrics["f1-score"] = float(f1_score(targets, predictions))
 
         precisions, recalls, thresholds = precision_recall_curve(targets, probas)
         metrics["precision_curve"] = precisions
         metrics["recall_curve"] = recalls
         metrics["thresholds"] = thresholds
-        metrics["auc"] = auc(recalls, precisions)
+        metrics["auc"] = float(auc(recalls, precisions))
 
         if metrics[target_metric] > self.best_metrics[target_metric]:
             self.best_metrics = copy.deepcopy(metrics)
+            self.best_model_scores = copy.deepcopy(self.model_scores)
+            self.best_model_labels = copy.deepcopy(self.labels)
 
         for key, _ in self.metrics_hist.items():
             self.metrics_hist[key].append(metrics[key])
@@ -74,7 +79,7 @@ class KinshipEvaluator:
     def save_hist(self):
 
         title = f"{self.pair.upper()} {self.set_name} Metrics"
-        fig_path = os.path.join(self.log_path, f"{self.set_name}_{self.pair}_fold_{self.fold}.png")
+        fig_path = os.path.join(self.log_path, f"{self.pair.lower()}_hist_{self.set_name.lower()}_fold_{self.fold}.png")
         if self.fold is not None:
             title += f" Fold {self.fold}"
 
@@ -84,8 +89,82 @@ class KinshipEvaluator:
         plt.plot(self.metrics_hist["f1-score"], color="turquoise", label="F1-Score", linestyle="--")
         plt.plot(self.metrics_hist["auc"], color="gold", label="AUC", linestyle=":")
         plt.legend()
+        plt.xlabel("Epoch")
+        plt.ylabel("Score")
         plt.grid(color='black', linestyle='--', linewidth=1, alpha=0.15)
         fig.savefig(fig_path)
         plt.close()
-        utils.save_json(os.path.join(self.log_path, f"{self.set_name}_hist_{self.pair}_fold_{self.fold}.json"),
+        utils.save_json(os.path.join(self.log_path,
+                                     f"{self.pair.lower()}_hist_{self.set_name.lower()}_fold_{self.fold}.json"),
                         self.metrics_hist)
+
+    def save_best_metrics(self):
+        title = f"{self.pair.upper()} {self.set_name} Precision Recall Curve"
+        fig_path = os.path.join(self.log_path, f"{self.pair.lower()}_{self.set_name.lower()}_fold_{self.fold}.png")
+        if self.fold is not None:
+            title += f" Fold {self.fold}"
+
+        fscore = (2 * self.best_metrics["precision_curve"] * self.best_metrics["recall_curve"]) / \
+                 (self.best_metrics["precision_curve"] + self.best_metrics["recall_curve"])
+        ix = np.argmax(fscore)
+        best_threshold = float(self.best_metrics["thresholds"][ix])
+
+        fig = plt.figure()
+        plt.plot(self.best_metrics["recall_curve"], self.best_metrics["precision_curve"],  color="turquoise",
+                 label="PR", linestyle="--")
+        plt.scatter(self.best_metrics["recall_curve"][ix], self.best_metrics["precision_curve"][ix],
+                    marker='o', color='tomato', label='Best')
+        plt.title(f"{title} AUC: {auc(self.best_metrics['recall_curve'], self.best_metrics['precision_curve']):.3f}")
+        plt.xlabel("Recall")
+        plt.ylabel("Precision")
+        plt.legend()
+        plt.grid(color='black', linestyle='--', linewidth=1, alpha=0.15)
+        fig.savefig(fig_path)
+        plt.close()
+
+        best_metrics = copy.deepcopy(self.best_metrics)
+        best_metrics["best_threshold"] = best_threshold
+
+        best_metrics["precision_curve"] = list(map(float, best_metrics["precision_curve"]))
+        best_metrics["recall_curve"] = list(map(float, best_metrics["recall_curve"]))
+        best_metrics["thresholds"] = list(map(float, best_metrics["thresholds"]))
+
+        utils.save_json(os.path.join(self.log_path,
+                                     f"{self.pair.lower()}_{self.set_name.lower()}_fold_{self.fold}.json"),
+                        best_metrics)
+
+    def get_kinface_pair_metrics(self, evaluators, pair_type):
+        accs, recalls, precisions, f_scores, scores, labels = list(), list(), list(), list(), list(), list()
+
+        for evaluator in evaluators:
+            accs.append(evaluator.best_metrics["acc"])
+            recalls.append(evaluator.best_metrics["recall"])
+            precisions.append(evaluator.best_metrics["precision"])
+            f_scores.append(evaluator.best_metrics["f1-score"])
+            scores += evaluator.best_model_scores
+            labels += evaluator.best_model_labels
+        pair_precisions, pair_recalls, pair_thresholds = precision_recall_curve(labels, scores)
+        pair_metrics = dict()
+        pair_metrics["acc"] = float(np.mean(accs))
+        pair_metrics["recall"] = float(np.mean(recalls))
+        pair_metrics["precision"] = float(np.mean(precisions))
+        pair_metrics["f1-score"] = float(np.mean(f_scores))
+        pair_metrics["auc"] = auc(pair_recalls, pair_precisions)
+        utils.save_json(os.path.join(self.log_path,
+                                     f"{self.pair}.json"),
+                        pair_metrics)
+
+        fscore = (2 * pair_precisions * pair_recalls) / (pair_precisions + pair_recalls)
+        ix = np.argmax(fscore)
+        fig_path = os.path.join(self.log_path, f"{pair_type.upper()}.png")
+        title = f"{pair_type.upper()} Precision Recall Curve"
+        fig = plt.figure()
+        plt.plot(pair_recalls, pair_precisions, color="turquoise", label="PR", linestyle="--")
+        plt.scatter(pair_recalls[ix], pair_precisions[ix], marker='o', color='tomato', label='Best')
+        plt.title(f"{title} AUC: {pair_metrics['auc']:.3f}")
+        plt.xlabel("Recall")
+        plt.ylabel("Precision")
+        plt.legend()
+        plt.grid(color='black', linestyle='--', linewidth=1, alpha=0.15)
+        fig.savefig(fig_path)
+        plt.close()
