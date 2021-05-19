@@ -109,7 +109,7 @@ class KinshipEvaluator:
         fig_path = os.path.join(self.log_path, f"{log_name}.png")
         fscore = (2 * self.best_metrics["precision_curve"] * self.best_metrics["recall_curve"]) / \
                  (self.best_metrics["precision_curve"] + self.best_metrics["recall_curve"])
-        ix = np.argmax(fscore)
+        ix = np.nanargmax(fscore)
         best_threshold = float(self.best_metrics["thresholds"][ix])
 
         fig = plt.figure()
@@ -151,12 +151,9 @@ class KinshipEvaluator:
         pair_metrics["precision"] = float(np.mean(precisions))
         pair_metrics["f1-score"] = float(np.mean(f_scores))
         pair_metrics["auc"] = auc(pair_recalls, pair_precisions)
-        utils.save_json(os.path.join(self.log_path,
-                                     f"{self.pair}.json"),
-                        pair_metrics)
 
         fscore = (2 * pair_precisions * pair_recalls) / (pair_precisions + pair_recalls)
-        ix = np.argmax(fscore)
+        ix = np.nanargmax(fscore)
         fig_path = os.path.join(self.log_path, f"{pair_type.upper()}.png")
         title = f"{pair_type.upper()} Precision Recall Curve"
         fig = plt.figure()
@@ -169,3 +166,11 @@ class KinshipEvaluator:
         plt.grid(color='black', linestyle='--', linewidth=1, alpha=0.15)
         fig.savefig(fig_path)
         plt.close()
+
+        pair_metrics["precision_curve"] = list(map(float, pair_precisions))
+        pair_metrics["recall_curve"] = list(map(float, pair_recalls))
+        pair_metrics["thresholds"] = list(map(float, pair_thresholds))
+
+        utils.save_json(os.path.join(self.log_path,
+                                     f"{self.pair}.json"),
+                        pair_metrics)

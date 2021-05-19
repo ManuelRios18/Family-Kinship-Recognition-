@@ -1,5 +1,8 @@
 from trainers.kinship_trainer import KinshipTrainer
 
+# model_name = "small_face_model"
+model_name = "small_siamese_face_model"
+exp_sufix = model_name
 
 n_epochs = 45
 lr = 0.001
@@ -15,13 +18,8 @@ dataset = "kinfacew"
 dataset_path = "/home/manuel/Documents/masters/Computer Vision/YGYME/data/"
 # dataset_path = "/media/manuel/New Volume/Computer Vision/fiw"
 kin_pairs = ["fd", "ms", "md", "fs"]
-kinfacew_set_name = "KinFaceW-II"
+kinfacew_set_name = "KinFaceW-I"
 kinfacew_n_folds = 5
-
-
-# model_name = "small_face_model"
-model_name = "small_siamese_face_model"
-exp_sufix = model_name
 
 trainer = KinshipTrainer(model_name=model_name, optimizer_name=optimizer_name, lr=lr, momentum=momentum,
                          weight_decay=weight_decay,  n_epochs=n_epochs, dataset=dataset, dataset_path=dataset_path,
