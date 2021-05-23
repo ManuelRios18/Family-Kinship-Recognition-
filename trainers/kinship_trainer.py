@@ -11,9 +11,12 @@ from torchvision import transforms
 from datasets.fiw_dataset import FIWDataset
 from evaluator.evaluator import KinshipEvaluator
 from models.small_face_model import SmallFaceModel
+from models.vgg_face_siamese import VGGFaceSiamese
 from models.vgg_face_multichannel import VGGFaceMutiChannel
-from models.small_siamese_face_model import SmallSiameseFaceModel
 from datasets.kinfacew_loader_gen import KinFaceWLoaderGenerator
+from models.small_siamese_face_model import SmallSiameseFaceModel
+
+
 
 
 class KinshipTrainer:
@@ -213,6 +216,8 @@ class KinshipTrainer:
             model = SmallSiameseFaceModel()
         elif self.model_name == "vgg_multichannel":
             model = VGGFaceMutiChannel(self.vgg_weights)
+        elif self.model_name == "vgg_siamese":
+            model = VGGFaceSiamese(self.vgg_weights)
         else:
             raise Exception("Unkown model")
 

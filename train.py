@@ -1,7 +1,7 @@
 from trainers.kinship_trainer import KinshipTrainer
 
 # model_name = "small_face_model"
-model_name = "vgg_multichannel"
+model_name = "vgg_siamese"
 exp_sufix = model_name
 
 n_epochs = 45
@@ -29,18 +29,3 @@ trainer = KinshipTrainer(model_name=model_name, optimizer_name=optimizer_name, l
                          kinfacew_set_name=kinfacew_set_name, kinfacew_n_folds=kinfacew_n_folds,
                          target_metric=target_metric, vgg_weights=vgg_path)
 trainer.train()
-
-
-
-
-
-
-
-
-# from torchvision import transforms
-# from datasets.kinfacew_loader_gen import KinFaceWLoaderGenerator
-#
-# transformer = transforms.Compose([transforms.ToPILImage(), transforms.Resize((64, 64)), transforms.ToTensor()])
-# dataset_path = "/home/manuel/Documents/masters/Computer Vision/YGYME/data/"
-# kin_loader_gen = KinFaceWLoaderGenerator(dataset_name="KinFaceW-I", dataset_path=dataset_path)
-# test_loader, train_loader = kin_loader_gen.get_data_loader(fold=1, batch_size=5,pair_type="fs", train_transformer=transformer, test_transformer=transformer)
