@@ -7,9 +7,10 @@ from datasets.kinfacew_dataset import KinFaceDataset
 
 class KinFaceWLoaderGenerator:
 
-    def __init__(self, dataset_name, dataset_path):
+    def __init__(self, dataset_name, dataset_path, color_space_name):
         assert dataset_name in ["KinFaceW-I", "KinFaceW-II"]
         self.dataset_name = dataset_name
+        self.color_space_name = color_space_name
         self.dataset_path = os.path.join(dataset_path, self.dataset_name)
         print(f"Parsing {dataset_name} dataset")
         self.kin_pairs = pd.concat([
@@ -33,8 +34,10 @@ class KinFaceWLoaderGenerator:
         kin_pairs = self.kin_pairs[self.kin_pairs["pair_type"] == pair_type]
         test_data_pairs = kin_pairs[kin_pairs["fold"] == fold]
         train_data_pairs = kin_pairs[kin_pairs["fold"] != fold]
-        kinfacew_dataset_test = KinFaceDataset(test_data_pairs, self.dataset_path, test_transformer)
-        kinfacew_dataset_train = KinFaceDataset(train_data_pairs, self.dataset_path, train_transformer)
+        kinfacew_dataset_test = KinFaceDataset(test_data_pairs, self.dataset_path, test_transformer,
+                                               self.color_space_name)
+        kinfacew_dataset_train = KinFaceDataset(train_data_pairs, self.dataset_path, train_transformer,
+                                                self.color_space_name)
 
         dataloader_test = torch.utils.data.DataLoader(kinfacew_dataset_test, batch_size=batch_size,
                                                       shuffle=True, num_workers=4)

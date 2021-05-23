@@ -6,10 +6,11 @@ from torch.utils.data import Dataset
 
 class KinFaceDataset(Dataset):
 
-    def __init__(self, labels_df, root_dir, transform=None):
+    def __init__(self, labels_df, root_dir, transform=None, color_space="rgb"):
         self.labels_df = labels_df
         self.root_dir = root_dir
         self.transform = transform
+        self.color_space = color_space
 
     def __len__(self):
         return len(self.labels_df)
@@ -36,6 +37,10 @@ class KinFaceDataset(Dataset):
 
         parent_image = io.imread(parent_image_path)
         children_image = io.imread(children_image_path)
+
+        if self.color_space == "bgr":
+            parent_image = parent_image[:, :, ::-1]
+            children_image = parent_image[:, :, ::-1]
 
         fold = self.labels_df.iloc[idx, 0]
         kin = self.labels_df.iloc[idx, 1]

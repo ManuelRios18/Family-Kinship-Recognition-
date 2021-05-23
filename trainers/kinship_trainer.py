@@ -11,6 +11,7 @@ from torchvision import transforms
 from datasets.fiw_dataset import FIWDataset
 from evaluator.evaluator import KinshipEvaluator
 from models.small_face_model import SmallFaceModel
+from models.vgg_face_multichannel import VGGFaceMutiChannel
 from models.small_siamese_face_model import SmallSiameseFaceModel
 from datasets.kinfacew_loader_gen import KinFaceWLoaderGenerator
 
@@ -19,7 +20,7 @@ class KinshipTrainer:
 
     def __init__(self, model_name, optimizer_name, lr, momentum, weight_decay, n_epochs, dataset, dataset_path,
                  kin_pairs, batch_size, exp_sufix, gpu_id, kinfacew_set_name="KinFaceW-I", kinfacew_n_folds=5,
-                 target_metric="acc"):
+                 target_metric="acc", vgg_weights=None):
         self.set_random_seed(990411)
         self.model_name = model_name
         self.optimizer_name = optimizer_name
@@ -36,6 +37,7 @@ class KinshipTrainer:
         self.kinfacew_set_name = kinfacew_set_name
         self.kinfacew_n_folds = kinfacew_n_folds
         self.target_metric = target_metric
+        self.vgg_weights = vgg_weights
         self.device = torch.device(f"cuda:{self.gpu_id}" if torch.cuda.is_available() else "cpu")
         print("Using device", self.device)
         assert self.dataset in ["kinfacew", "fiw"], f"dataset must be kinfacew or fiw"
@@ -65,15 +67,31 @@ class KinshipTrainer:
         return logs_dir
 
     def get_transformers(self):
-        transformer_train = transforms.Compose([transforms.ToPILImage(),
-                                                transforms.Resize((64, 64)),
-                                                transforms.RandomGrayscale(0.3),
-                                                transforms.RandomRotation([-8, +8]),
-                                                transforms.ToTensor(),
-                                                transforms.RandomHorizontalFlip()])
-        transformer_test = transforms.Compose([transforms.ToPILImage(),
-                                               transforms.Resize((64, 64)),
-                                               transforms.ToTensor()])
+        if "vgg" in self.model_name:
+            transformer_train = transforms.Compose([transforms.ToPILImage(),
+                                                    transforms.Resize((224, 224)),
+                                                    transforms.RandomGrayscale(0.3),
+                                                    transforms.RandomRotation([-8, +8]),
+                                                    transforms.ToTensor(),
+                                                    transforms.Normalize(
+                                                        [129.1863 / 255, 104.7624 / 255, 93.5940 / 255],
+                                                        [1 / 255, 1 / 255, 1 / 255]),
+                                                    transforms.RandomHorizontalFlip()])
+            transformer_test = transforms.Compose([transforms.ToPILImage(),
+                                                   transforms.Resize((224, 224)),
+                                                   transforms.ToTensor(),
+                                                   transforms.Normalize([129.1863 / 255, 104.7624 / 255, 93.5940 / 255],
+                                                                        [1 / 255, 1 / 255, 1 / 255])])
+        else:
+            transformer_train = transforms.Compose([transforms.ToPILImage(),
+                                                    transforms.Resize((64, 64)),
+                                                    transforms.RandomGrayscale(0.3),
+                                                    transforms.RandomRotation([-8, +8]),
+                                                    transforms.ToTensor(),
+                                                    transforms.RandomHorizontalFlip()])
+            transformer_test = transforms.Compose([transforms.ToPILImage(),
+                                                   transforms.Resize((64, 64)),
+                                                   transforms.ToTensor()])
 
         return transformer_train, transformer_test
 
@@ -107,7 +125,8 @@ class KinshipTrainer:
 
     def train_kinfacew(self):
         kin_loader_gen = KinFaceWLoaderGenerator(dataset_name=self.kinfacew_set_name,
-                                                 dataset_path=self.dataset_path)
+                                                 dataset_path=self.dataset_path,
+                                                 color_space_name=self.get_color_space_name())
         for pair_type in self.kin_pairs:
             pair_evaluators = list()
             for fold in range(1, self.kinfacew_n_folds+1):
@@ -145,11 +164,13 @@ class KinshipTrainer:
         for pair_type in self.kin_pairs:
             train_loader = torch.utils.data.DataLoader(FIWDataset(self.dataset_path, pair_type,
                                                                   "train",
-                                                                  self.transformer_train),
+                                                                  self.transformer_train,
+                                                                  color_space=self.get_color_space_name()),
                                                        batch_size=self.batch_size,
                                                        shuffle=True, num_workers=4)
             test_loader = torch.utils.data.DataLoader(FIWDataset(self.dataset_path, pair_type,
-                                                                 "val", self.transformer_test),
+                                                                 "val", self.transformer_test,
+                                                                 color_space=self.get_color_space_name()),
                                                       batch_size=self.batch_size,
                                                       shuffle=True, num_workers=4)
             print(f"STARTING training for pair {pair_type}")
@@ -190,6 +211,8 @@ class KinshipTrainer:
             model = SmallFaceModel()
         elif self.model_name == "small_siamese_face_model":
             model = SmallSiameseFaceModel()
+        elif self.model_name == "vgg_multichannel":
+            model = VGGFaceMutiChannel(self.vgg_weights)
         else:
             raise Exception("Unkown model")
 
@@ -210,4 +233,9 @@ class KinshipTrainer:
         criterion = nn.BCEWithLogitsLoss()
         return criterion
 
-
+    def get_color_space_name(self):
+        color_space = "rgb"
+        if "vgg" in self.model_name:
+            color_space = "bgr"
+        print("Setting Color space to:", color_space)
+        return color_space

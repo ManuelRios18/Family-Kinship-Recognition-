@@ -11,11 +11,12 @@ from torch.utils.data import Dataset
 
 class FIWDataset(Dataset):
 
-    def __init__(self, root_dir, pair_type, set_name, transform=None):
+    def __init__(self, root_dir, pair_type, set_name, transform=None, color_space="rgb"):
         self.root_dir = root_dir
         self.pair_type = pair_type
         self.set_name = set_name
         self.transform = transform
+        self.color_space = color_space
 
         self.labels_df = pd.read_csv(os.path.join("data", f"fiw_{self.set_name}_pairs.csv"))
         self.labels_df = self.labels_df[self.labels_df.pair_type == self.pair_type]
@@ -38,6 +39,10 @@ class FIWDataset(Dataset):
 
         parent_image = io.imread(parent_image_path)
         children_image = io.imread(children_image_path)
+
+        if self.color_space == "bgr":
+            parent_image = parent_image[:, :, ::-1]
+            children_image = parent_image[:, :, ::-1]
 
         kin = row.kin
 
