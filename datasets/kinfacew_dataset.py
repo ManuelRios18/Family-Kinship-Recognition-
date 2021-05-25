@@ -49,6 +49,9 @@ class KinFaceDataset(Dataset):
             parent_image = self.transform(parent_image)
             children_image = self.transform(children_image)
 
+        parent_image = parent_image.double()
+        children_image = children_image.double()
+
         sample = {"parent_image": parent_image,
                   "children_image": children_image,
                   "kin": kin,

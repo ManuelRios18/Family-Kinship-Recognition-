@@ -49,7 +49,7 @@ class KinFaceWLoaderGenerator:
     def get_data_loader_full(self, batch_size, pair_type, transformer):
         assert pair_type in ["fs", "fd", "md", "ms"]
         kin_pairs = self.kin_pairs[self.kin_pairs["pair_type"] == pair_type]
-        kinfacew_dataset = KinFaceDataset(kin_pairs, self.dataset_path, transformer)
+        kinfacew_dataset = KinFaceDataset(kin_pairs, self.dataset_path, transformer, self.color_space_name)
 
         kinface_dataloader = torch.utils.data.DataLoader(kinfacew_dataset, batch_size=batch_size,
                                                       shuffle=True, num_workers=4)

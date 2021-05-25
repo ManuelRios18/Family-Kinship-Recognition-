@@ -34,10 +34,17 @@ class VGGFaceSiamese(nn.Module):
         parent_features = self.encode_faces(parent_image.float())
         children_features = self.encode_faces(children_image.float())
         distance = torch.abs(parent_features - children_features)
-        x = F.relu(self.fc7(distance))
-        x = self.classifier(x)
+        x = self.classifier(distance)
 
         return x
+
+    def get_features(self, parent_image, children_image):
+
+        parent_features = self.encode_faces(parent_image.float())
+        children_features = self.encode_faces(children_image.float())
+        distance = torch.abs(parent_features - children_features)
+
+        return distance
 
     def encode_faces(self, x):
 
@@ -62,6 +69,7 @@ class VGGFaceSiamese(nn.Module):
         x = x.view(x.size(0), -1)
         x = F.relu(self.fc6(x))
         x = F.dropout(x, 0.5, self.training)
+        x = self.fc7(x)
 
         return x
 

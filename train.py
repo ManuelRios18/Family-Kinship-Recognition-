@@ -1,12 +1,12 @@
 from trainers.kinship_trainer import KinshipTrainer
 
-# model_name = "small_face_model"
-model_name = "vgg_siamese"
-exp_sufix = model_name
+model_name = "small_siamese_face_model"
+# model_name = "vgg_siamese"
+exp_sufix = model_name + "_with_norm_"
 
-n_epochs = 45
+n_epochs = 75
 lr = 0.001
-batch_size = 8
+batch_size = 16
 momentum = 0.9
 weight_decay = 0.005
 gpu_id = 0

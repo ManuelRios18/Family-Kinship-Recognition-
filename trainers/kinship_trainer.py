@@ -7,6 +7,7 @@ import random
 import numpy as np
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as f
 from torchvision import transforms
 from datasets.fiw_dataset import FIWDataset
 from evaluator.evaluator import KinshipEvaluator
@@ -15,7 +16,6 @@ from models.vgg_face_siamese import VGGFaceSiamese
 from models.vgg_face_multichannel import VGGFaceMutiChannel
 from datasets.kinfacew_loader_gen import KinFaceWLoaderGenerator
 from models.small_siamese_face_model import SmallSiameseFaceModel
-
 
 
 
@@ -96,7 +96,15 @@ class KinshipTrainer:
                                                    transforms.Resize((64, 64)),
                                                    transforms.ToTensor()])
 
-        return transformer_train, transformer_test
+        return transformer_train, transformer_test,
+
+    def custom_loss(self, emb_a, emb_b, y):
+        alpha = 2.5
+        # cos = nn.CosineSimilarity(dim=1, eps=1e-6)
+        dist = torch.mean(f.normalize(torch.abs(emb_a - emb_b), dim=0, p=2), dim=1)
+        # dist = torch.mean(f.normalize(dist, dim=0, p=2))
+        cost = (1-y)*torch.exp(-alpha*dist) + y*torch.exp(-alpha*(1-dist))
+        return torch.mean(cost)
 
     def train_epoch(self, model, optimizer, criterion, epoch, train_loader, evaluator):
         model.train()
@@ -106,8 +114,9 @@ class KinshipTrainer:
                                            sample["children_image"].to(self.device)
             labels = sample["kin"].to(self.device).float()
             optimizer.zero_grad()
-            output = model(parent_image.float(), children_image.float()).squeeze(1)
-            loss = criterion(output, labels)
+            output, p_f, c_f = model(parent_image.float(), children_image.float())
+            output, p_f, c_f = output.squeeze(1), p_f.squeeze(1), c_f.squeeze(1)
+            loss = criterion(output, labels) + 2*self.custom_loss(p_f, c_f, labels)
             loss.backward()
             optimizer.step()
             output = torch.sigmoid(output)
@@ -120,7 +129,8 @@ class KinshipTrainer:
             parent_image, children_image = sample["parent_image"].to(self.device), \
                                            sample["children_image"].to(self.device)
             labels = sample["kin"].to(self.device).float()
-            output = model(parent_image.float(), children_image.float()).squeeze(1)
+            output, _, _ = model(parent_image.float(), children_image.float())
+            output = output.squeeze(1)
             output = torch.sigmoid(output)
             evaluator.add_batch(list(output.detach().cpu().numpy()), list(labels.detach().cpu().numpy()))
         metrics = evaluator.get_metrics(self.target_metric)
