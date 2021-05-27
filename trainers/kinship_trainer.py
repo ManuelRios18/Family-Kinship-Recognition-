@@ -100,11 +100,26 @@ class KinshipTrainer:
 
     def custom_loss(self, emb_a, emb_b, y):
         alpha = 2.5
-        # cos = nn.CosineSimilarity(dim=1, eps=1e-6)
-        dist = torch.mean(f.normalize(torch.abs(emb_a - emb_b), dim=0, p=2), dim=1)
-        # dist = torch.mean(f.normalize(dist, dim=0, p=2))
-        cost = (1-y)*torch.exp(-alpha*dist) + y*torch.exp(-alpha*(1-dist))
-        return torch.mean(cost)
+        emb_a = f.normalize(emb_a)
+        emb_b = f.normalize(emb_b)
+        #print(torch.sum(f.normalize(torch.abs(emb_a - emb_b)), dim=1))
+        #print(y)
+        ind = list()
+        for a_i, anchor in enumerate(emb_a):
+            anchor = anchor.repeat(emb_a.size()[0], 1)
+            neg_distances = f.pairwise_distance(anchor, emb_b, 2)
+            neg_distances[a_i] = float("Inf")
+            hardest_idx = torch.argmin(neg_distances).item()
+            ind.append(hardest_idx)
+        emb_n = emb_b[[ind]]
+        dist = f.pairwise_distance(emb_a, emb_b, 2) - f.pairwise_distance(emb_a, emb_n, 2) + 1
+        dist = f.relu(dist)
+        
+        #print(y*f.pairwise_distance(emb_a, emb_b, 2))
+        # dist = torch.mean(f.normalize(torch.abs(emb_a - emb_b), dim=0, p=2), dim=1)
+        #dist = torch.mean(torch.abs(emb_a - emb_b), dim=1)
+        #cost = (1-y)*torch.exp(-alpha*dist) + y*torch.exp(-alpha*(1-dist))
+        return torch.mean(dist)
 
     def train_epoch(self, model, optimizer, criterion, epoch, train_loader, evaluator):
         model.train()
@@ -116,7 +131,7 @@ class KinshipTrainer:
             optimizer.zero_grad()
             output, p_f, c_f = model(parent_image.float(), children_image.float())
             output, p_f, c_f = output.squeeze(1), p_f.squeeze(1), c_f.squeeze(1)
-            loss = criterion(output, labels) + 2*self.custom_loss(p_f, c_f, labels)
+            loss = criterion(output, labels) + self.custom_loss(p_f, c_f, labels)
             loss.backward()
             optimizer.step()
             output = torch.sigmoid(output)
@@ -125,6 +140,7 @@ class KinshipTrainer:
 
     def val_epoch(self, model, epoch, val_loader, evaluator):
         evaluator.reset()
+        model.eval()
         for sample in tqdm.tqdm(val_loader, total=len(val_loader), desc=f"Val epoch {epoch}"):
             parent_image, children_image = sample["parent_image"].to(self.device), \
                                            sample["children_image"].to(self.device)
