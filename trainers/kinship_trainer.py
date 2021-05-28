@@ -102,8 +102,6 @@ class KinshipTrainer:
         alpha = 2.5
         emb_a = f.normalize(emb_a)
         emb_b = f.normalize(emb_b)
-        #print(torch.sum(f.normalize(torch.abs(emb_a - emb_b)), dim=1))
-        #print(y)
         ind = list()
         for a_i, anchor in enumerate(emb_a):
             anchor = anchor.repeat(emb_a.size()[0], 1)
@@ -113,12 +111,8 @@ class KinshipTrainer:
             ind.append(hardest_idx)
         emb_n = emb_b[[ind]]
         dist = f.pairwise_distance(emb_a, emb_b, 2) - f.pairwise_distance(emb_a, emb_n, 2) + 1
-        dist = f.relu(dist)
+        dist = f.relu(y*dist)
         
-        #print(y*f.pairwise_distance(emb_a, emb_b, 2))
-        # dist = torch.mean(f.normalize(torch.abs(emb_a - emb_b), dim=0, p=2), dim=1)
-        #dist = torch.mean(torch.abs(emb_a - emb_b), dim=1)
-        #cost = (1-y)*torch.exp(-alpha*dist) + y*torch.exp(-alpha*(1-dist))
         return torch.mean(dist)
 
     def train_epoch(self, model, optimizer, criterion, epoch, train_loader, evaluator):

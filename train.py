@@ -9,7 +9,7 @@ lr = 0.001
 batch_size = 16
 momentum = 0.9
 weight_decay = 0.005
-gpu_id = 3
+gpu_id = 0
 optimizer_name = "SGD"
 target_metric = "acc"
 
@@ -17,8 +17,8 @@ dataset = "kinfacew"
 # dataset = "fiw"
 dataset_path = "/home/msrios/kinfacew/"
 # dataset_path = "/media/manuel/New Volume/Computer Vision/fiw"
-kin_pairs = ["fs"]
-kinfacew_set_name = "KinFaceW-I"
+kin_pairs = ["fd", "ms", "md", "fs"]
+kinfacew_set_name = "KinFaceW-II"
 kinfacew_n_folds = 5
 
 vgg_path = "/home/msrios/vgg_weights/VGG_FACE.t7"
