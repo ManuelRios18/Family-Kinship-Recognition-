@@ -289,6 +289,7 @@ class KinshipTrainer:
             criterion = self.load_criterion()
             train_evaluator = KinshipEvaluator(set_name="Training", pair=pair_type, log_path=self.logs_dir)
             test_evaluator = KinshipEvaluator(set_name="Testing", pair=pair_type, log_path=self.logs_dir)
+            scheduler = torch.optim.lr_scheduler.StepLR(optimizer,8)
             for epoch in range(1, self.n_epochs + 1):
                 self.train_epoch_fiw(model, optimizer, criterion, epoch, train_loader, train_evaluator)
                 model_score = self.val_epoch_fiw(model, epoch, test_loader, test_evaluator)
@@ -297,6 +298,7 @@ class KinshipTrainer:
                     test_evaluator.save_best_metrics()
                     self.save_model(model, f"best_model_{pair_type}")
                     print(f"NEW best {self.target_metric} score {best_score} for pair {pair_type}")
+                scheduler.step()
                 train_evaluator.save_hist()
                 test_evaluator.save_hist()
             print(f"FINISHING training for pair {pair_type}"
