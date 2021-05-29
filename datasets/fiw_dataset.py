@@ -18,8 +18,8 @@ class FIWDataset(Dataset):
         self.transform = transform
         self.color_space = color_space
 
-        self.labels_df = pd.read_csv(os.path.join("data", f"fiw_{self.set_name}_pairs.csv"))
-        self.labels_df = self.labels_df[self.labels_df.pair_type == self.pair_type]
+        self.labels_df = pd.read_csv(os.path.join("data", f"{self.set_name}-pairs-full.csv"))
+        self.labels_df = self.labels_df[self.labels_df.ptype == self.pair_type]
 
     def __len__(self):
         return len(self.labels_df)
@@ -34,8 +34,8 @@ class FIWDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
         row = self.labels_df.iloc[idx]
-        parent_image_path = self.get_image_path(row.parent_image)
-        children_image_path = self.get_image_path(row.child_image)
+        parent_image_path = self.get_image_path(row.p1)
+        children_image_path = self.get_image_path(row.p2)
 
         parent_image = io.imread(parent_image_path)
         children_image = io.imread(children_image_path)
@@ -44,7 +44,7 @@ class FIWDataset(Dataset):
             parent_image = parent_image[:, :, ::-1]
             children_image = parent_image[:, :, ::-1]
 
-        kin = row.kin
+        kin = row.label
 
         if self.transform:
             parent_image = self.transform(parent_image)
@@ -54,5 +54,7 @@ class FIWDataset(Dataset):
                   "children_image": children_image,
                   "kin": kin,
                   "parent_image_name": parent_image_path,
-                  "children_image_name": children_image_path}
+                  "children_image_name": children_image_path,
+                  "parent_family_id": parent_image_path.split(os.path.sep)[-3],
+                  "children_family_id": children_image_path.split(os.path.sep)[-3]}
         return sample

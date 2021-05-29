@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as f
 from torchvision import transforms
+from models.kin_facenet import KinFaceNet
 from datasets.fiw_dataset import FIWDataset
 from evaluator.evaluator import KinshipEvaluator
 from models.small_face_model import SmallFaceModel
@@ -16,7 +17,6 @@ from models.vgg_face_siamese import VGGFaceSiamese
 from models.vgg_face_multichannel import VGGFaceMutiChannel
 from datasets.kinfacew_loader_gen import KinFaceWLoaderGenerator
 from models.small_siamese_face_model import SmallSiameseFaceModel
-
 
 
 class KinshipTrainer:
@@ -85,6 +85,19 @@ class KinshipTrainer:
                                                    transforms.ToTensor(),
                                                    transforms.Normalize([129.1863 / 255, 104.7624 / 255, 93.5940 / 255],
                                                                         [1 / 255, 1 / 255, 1 / 255])])
+        elif "facenet" in self.model_name:
+
+            transformer_train = transforms.Compose([transforms.ToPILImage(),
+                                                    transforms.Resize((160, 160)),
+                                                    transforms.RandomGrayscale(0.3),
+                                                    transforms.RandomRotation([-8, +8]),
+                                                    transforms.ToTensor(),
+                                                    transforms.RandomHorizontalFlip()])
+
+            transformer_test = transforms.Compose([transforms.ToPILImage(),
+                                                   transforms.Resize((64, 64)),
+                                                   transforms.ToTensor()])
+
         else:
             transformer_train = transforms.Compose([transforms.ToPILImage(),
                                                     transforms.Resize((64, 64)),
@@ -180,8 +193,80 @@ class KinshipTrainer:
                 print(f"FINISHING training for pair {pair_type} fold {fold} "
                       f"best {self.target_metric} score {best_score}")
                 pair_evaluators.append(test_evaluator)
-            pair_evuator = KinshipEvaluator(set_name="Testing", pair=pair_type, log_path=self.logs_dir)
-            pair_evuator.get_kinface_pair_metrics(pair_evaluators, pair_type)
+            pair_evaluator = KinshipEvaluator(set_name="Testing", pair=pair_type, log_path=self.logs_dir)
+            pair_evaluator.get_kinface_pair_metrics(pair_evaluators, pair_type)
+
+    def fiw_triplet_loss(self, parents_embedings, children_embedings, y, parents_families, children_families):
+        # Seteamos margin
+        margin = 2
+        # Copiamos y por que me da miedito cagarmela y perder el gradiente
+        y_copy = y.cpu().numpy()
+        # Lista vacia donde almacenamos los indices de las parejas dificies par cada padre
+        hard_negative_index = list()
+        for parent_index, parent_emb in enumerate(parents_embedings):
+            # Sacamos la familia del padre
+            parent_family = parents_families[parent_index]
+            # Hacemos una mascara donde 1 significa que el padre y el hijo son de la misma familia
+            child_families_mask = np.array([1 if parent_family == child_family else 0
+                                            for child_family in children_families])
+            # Repetimos el vector del papa tantas veces como sea necesario para operar
+            anchor = parent_emb.repeat(children_embedings.size()[0], 1)
+            # Sacamos todas las distancias
+            distances = f.pairwise_distance(anchor, children_embedings, 2).detach().cpu().numpy()
+            # Volemos Infinito las distancias donde la mascara sea 1 ( es decir las de la misma familia)
+            # Por lo tanto no vamos a sacar indices de parejas dificiles pertenicientes a la misma familia
+            distances[child_families_mask == 1] = float("Inf")
+            # Guardamos el Indice del hijo dificil
+            hard_negative_index.append(np.argmin(distances))
+        # Volvemos los indices un array
+        hard_negative_index = np.array(hard_negative_index)
+
+        # Como solo nos interesan como anclas las parejs que tienen la etiqueta positiva, filtramos con y
+        anchors = parents_embedings[y_copy == 1]
+        positive = children_embedings[y_copy == 1]
+        # Antes de filtrar las negativas primero ordenamos con los indices dificiles
+        negative = children_embedings[[hard_negative_index]][y_copy == 1]
+        # Hacemos la formulita
+        triplet_loss = f.relu(f.pairwise_distance(anchors, positive, 2) -
+                              f.pairwise_distance(anchors, negative, 2) + margin)
+        # retornamos la media
+        return torch.mean(triplet_loss)
+
+    def train_epoch_fiw(self, model, optimizer, criterion, epoch, train_loader, evaluator):
+        model.train()
+        evaluator.reset()
+        for sample in tqdm.tqdm(train_loader, total=len(train_loader), desc=f"Training epoch {epoch}"):
+            parent_image, children_image = sample["parent_image"].to(self.device), \
+                                           sample["children_image"].to(self.device)
+            labels = sample["kin"].to(self.device).float()
+            optimizer.zero_grad()
+            output, parents_features, children_features = model(parent_image.float(), children_image.float())
+            output, parents_features, children_features = output.squeeze(1), parents_features.squeeze(1), \
+                                                          children_features.squeeze(1)
+            triplet_loss = self.fiw_triplet_loss(parents_embedings=parents_features,
+                                                 children_embedings=children_features,
+                                                 y=labels, parents_families=sample["parent_family_id"],
+                                                 children_families=sample["children_family_id"])
+            loss = criterion(output, labels) + triplet_loss
+            loss.backward()
+            optimizer.step()
+            output = torch.sigmoid(output)
+            evaluator.add_batch(list(output.detach().cpu().numpy()), list(labels.detach().cpu().numpy()))
+        metrics = evaluator.get_metrics(self.target_metric)
+
+    def val_epoch_fiw(self, model, epoch, val_loader, evaluator):
+        evaluator.reset()
+        model.eval()
+        for sample in tqdm.tqdm(val_loader, total=len(val_loader), desc=f"Val epoch {epoch}"):
+            parent_image, children_image = sample["parent_image"].to(self.device), \
+                                           sample["children_image"].to(self.device)
+            labels = sample["kin"].to(self.device).float()
+            output, _, _ = model(parent_image.float(), children_image.float())
+            output = output.squeeze(1)
+            output = torch.sigmoid(output)
+            evaluator.add_batch(list(output.detach().cpu().numpy()), list(labels.detach().cpu().numpy()))
+        metrics = evaluator.get_metrics(self.target_metric)
+        return metrics[self.target_metric]
 
     def train_fiw(self):
         for pair_type in self.kin_pairs:
@@ -205,8 +290,8 @@ class KinshipTrainer:
             train_evaluator = KinshipEvaluator(set_name="Training", pair=pair_type, log_path=self.logs_dir)
             test_evaluator = KinshipEvaluator(set_name="Testing", pair=pair_type, log_path=self.logs_dir)
             for epoch in range(1, self.n_epochs + 1):
-                self.train_epoch(model, optimizer, criterion, epoch, train_loader, train_evaluator)
-                model_score = self.val_epoch(model, epoch, test_loader, test_evaluator)
+                self.train_epoch_fiw(model, optimizer, criterion, epoch, train_loader, train_evaluator)
+                model_score = self.val_epoch_fiw(model, epoch, test_loader, test_evaluator)
                 if model_score > best_score:
                     best_score = model_score
                     test_evaluator.save_best_metrics()
@@ -238,6 +323,8 @@ class KinshipTrainer:
             model = VGGFaceMutiChannel(self.vgg_weights)
         elif self.model_name == "vgg_siamese":
             model = VGGFaceSiamese(self.vgg_weights)
+        elif self.model_name == "kin_facenet":
+            model = KinFaceNet()
         else:
             raise Exception("Unkown model")
 
