@@ -95,7 +95,7 @@ class KinshipTrainer:
                                                     transforms.RandomHorizontalFlip()])
 
             transformer_test = transforms.Compose([transforms.ToPILImage(),
-                                                   transforms.Resize((64, 64)),
+                                                   transforms.Resize((160, 160)),
                                                    transforms.ToTensor()])
 
         else:
