@@ -6,7 +6,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Kinship Verification.')
 
-parser.add_argument('--data_path', type=str, default="..\..\Data\FIW",
+parser.add_argument('--data_path', type=str, default=r"/media/disk0/Datasets_FP/Correa_Rios",
                     help='path to dataset')
 parser.add_argument('--model_name', type=str, default='kin_facenet',
                     help='name of learning model')
@@ -42,6 +42,7 @@ target_metric = "acc"
 
 # dataset_path = "/home/msrios/kinfacew/"
 # dataset_path = "/media/manuel/New Volume/Computer Vision/fiw"
+# dataset_path = "..\..\Data\FIW"
 kin_pairs = ["fd", "ms", "md", "fs"]
 kinfacew_set_name = "KinFaceW-II"
 kinfacew_n_folds = 5
