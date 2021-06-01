@@ -1,4 +1,4 @@
-import os
+import os,glob
 import copy
 import tqdm
 import torch
@@ -17,6 +17,7 @@ from models.vgg_face_siamese import VGGFaceSiamese
 from models.vgg_face_multichannel import VGGFaceMutiChannel
 from datasets.kinfacew_loader_gen import KinFaceWLoaderGenerator
 from models.small_siamese_face_model import SmallSiameseFaceModel
+from PIL import Image
 
 
 class KinshipTrainer:
@@ -303,6 +304,59 @@ class KinshipTrainer:
                 test_evaluator.save_hist()
             print(f"FINISHING training for pair {pair_type}"
                   f"best {self.target_metric} score {best_score}")
+            
+    def test_fiw(self):
+        for pair_type in self.kin_pairs:
+            test_loader = torch.utils.data.DataLoader(FIWDataset(self.dataset_path, pair_type,
+                                                                  "test",
+                                                                  self.transformer_train,
+                                                                  color_space=self.get_color_space_name()),
+                                                       batch_size=self.batch_size,
+                                                       shuffle=True)#, num_workers=4)
+            test_evaluator = KinshipEvaluator(set_name="TEST", pair=pair_type, log_path=self.logs_dir)
+            model = self.load_best_model(pair_type)
+            model.to(self.device)
+            for sample in tqdm.tqdm(test_loader, total=len(test_loader), desc=f"Test"):
+                parent_image, children_image = sample["parent_image"].to(self.device), \
+                                               sample["children_image"].to(self.device)
+                labels = sample["kin"].to(self.device).float()
+                output, _, _ = model(parent_image.float(), children_image.float())
+                output = output.squeeze(1)
+                output = torch.sigmoid(output)
+                test_evaluator.add_batch(list(output.detach().cpu().numpy()), list(labels.detach().cpu().numpy()))
+            metrics = test_evaluator.get_metrics(self.target_metric)
+            test_evaluator.save_best_metrics()
+            print(metrics)
+            
+    def demo(self,parent_path,child_path,pair_type):
+        if parent_path is None:
+            parent_path=self.get_random_image()
+        if child_path is None:
+            child_path=self.get_random_image()
+        parent_image = np.asarray(Image.open(parent_path))
+        child_image = np.asarray(Image.open(child_path))
+        
+        best_thresh = {'md':0.18840347230434418,'fs':0.12270016968250275,'fd':0.16462816298007965,'ms':0.08133465051651001}
+        
+        _,test_transforms = self.get_transformers()
+        parent_image = test_transforms(parent_image)
+        child_image = test_transforms(child_image)
+        
+        parent_image = torch.stack((parent_image,parent_image))
+        child_image = torch.stack((child_image,child_image))
+        
+        model = self.load_best_model(pair_type)
+        output, _, _ = model(parent_image.float(), child_image.float())
+        output = torch.sigmoid(output)
+        
+        if output[0].item()>best_thresh[pair_type]:
+            print('KIN:',pair_type)
+        else:
+            print('NO KIN')
+            
+    def get_random_image(self):
+        test_ims = glob.glob(os.path.join(self.dataset_path,'test-faces','*.jpg'))
+        return test_ims[np.random.randint(0,len(test_ims))]
 
     def save_model(self, model, model_name):
         with open(f"{self.logs_dir}/{model_name}.pth", 'wb') as fp:
@@ -330,6 +384,12 @@ class KinshipTrainer:
         else:
             raise Exception("Unkown model")
 
+        return model
+    
+    def load_best_model(self,pair_type):
+        model = KinFaceNet()
+        model.load_state_dict(torch.load(os.path.join('logs','kin_facenet_with_norm__fiw_BEST','best_model_'+pair_type+'.pth')))
+        model.eval()
         return model
 
     def load_optimizer(self, model):

@@ -25,7 +25,11 @@ class FIWDataset(Dataset):
         return len(self.labels_df)
 
     def get_image_path(self, image_name):
-        image_path = os.path.join(self.root_dir, self.set_name + '-faces', image_name)
+        if self.set_name == 'test':
+            n = 'val'
+        else:
+            n= 'train'
+        image_path = os.path.join(self.root_dir, n + '-faces', image_name)
 
         return image_path
 
