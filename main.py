@@ -16,7 +16,7 @@ parser.add_argument('--gpu', type=int, default=0,
                     help='gpu id to use')
 parser.add_argument('--lr', type=float, default=1e-3,
                     help='learning rate')
-parser.add_argument('--bs', type=int, default=8,
+parser.add_argument('--bs', type=int, default=40,
                     help='batch size')
 parser.add_argument('--num_epochs', type=int, default=16,
                     help='number of training epochs')
@@ -35,11 +35,8 @@ args = parser.parse_args()
 # model_name = "vgg_siamese"
 exp_sufix = args.model_name + "_with_norm_"
 
-n_epochs = 75
-batch_size = 24
 momentum = 0.9
 weight_decay = 0.005
-gpu_id = 0
 optimizer_name = "SGD"
 target_metric = "acc"
 
@@ -53,7 +50,7 @@ vgg_path = "/home/msrios/vgg_weights/VGG_FACE.t7"
 
 trainer = KinshipTrainer(model_name=args.model_name, optimizer_name=optimizer_name, lr=args.lr, momentum=momentum,
                          weight_decay=weight_decay,  n_epochs=args.num_epochs, dataset=args.dataset_name, dataset_path=args.data_path,
-                         kin_pairs=kin_pairs, batch_size=batch_size, exp_sufix=exp_sufix, gpu_id=args.gpu,
+                         kin_pairs=kin_pairs, batch_size=args.bs, exp_sufix=exp_sufix, gpu_id=args.gpu,
                          kinfacew_set_name=kinfacew_set_name, kinfacew_n_folds=kinfacew_n_folds,
                          target_metric=target_metric, vgg_weights=vgg_path)
 

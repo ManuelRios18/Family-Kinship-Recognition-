@@ -198,39 +198,23 @@ class KinshipTrainer:
             pair_evaluator.get_kinface_pair_metrics(pair_evaluators, pair_type)
 
     def fiw_triplet_loss(self, parents_embedings, children_embedings, y, parents_families, children_families):
-        # Seteamos margin
         margin = 2
-        # Copiamos y por que me da miedito cagarmela y perder el gradiente
         y_copy = y.cpu().numpy()
-        # Lista vacia donde almacenamos los indices de las parejas dificies par cada padre
         hard_negative_index = list()
         for parent_index, parent_emb in enumerate(parents_embedings):
-            # Sacamos la familia del padre
             parent_family = parents_families[parent_index]
-            # Hacemos una mascara donde 1 significa que el padre y el hijo son de la misma familia
             child_families_mask = np.array([1 if parent_family == child_family else 0
                                             for child_family in children_families])
-            # Repetimos el vector del papa tantas veces como sea necesario para operar
             anchor = parent_emb.repeat(children_embedings.size()[0], 1)
-            # Sacamos todas las distancias
             distances = f.pairwise_distance(anchor, children_embedings, 2).detach().cpu().numpy()
-            # Volemos Infinito las distancias donde la mascara sea 1 ( es decir las de la misma familia)
-            # Por lo tanto no vamos a sacar indices de parejas dificiles pertenicientes a la misma familia
             distances[child_families_mask == 1] = float("Inf")
-            # Guardamos el Indice del hijo dificil
             hard_negative_index.append(np.argmin(distances))
-        # Volvemos los indices un array
         hard_negative_index = np.array(hard_negative_index)
-
-        # Como solo nos interesan como anclas las parejs que tienen la etiqueta positiva, filtramos con y
         anchors = parents_embedings[y_copy == 1]
         positive = children_embedings[y_copy == 1]
-        # Antes de filtrar las negativas primero ordenamos con los indices dificiles
         negative = children_embedings[[hard_negative_index]][y_copy == 1]
-        # Hacemos la formulita
         triplet_loss = f.relu(f.pairwise_distance(anchors, positive, 2) -
                               f.pairwise_distance(anchors, negative, 2) + margin)
-        # retornamos la media
         return torch.mean(triplet_loss)
 
     def train_epoch_fiw(self, model, optimizer, criterion, epoch, train_loader, evaluator):
@@ -308,7 +292,7 @@ class KinshipTrainer:
     def test_fiw(self):
         for pair_type in self.kin_pairs:
             test_loader = torch.utils.data.DataLoader(FIWDataset(self.dataset_path, pair_type,
-                                                                  "test",
+                                                                  "val",
                                                                   self.transformer_train,
                                                                   color_space=self.get_color_space_name()),
                                                        batch_size=self.batch_size,
