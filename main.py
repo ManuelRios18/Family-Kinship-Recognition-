@@ -20,13 +20,13 @@ parser.add_argument('--bs', type=int, default=40,
                     help='batch size')
 parser.add_argument('--num_epochs', type=int, default=16,
                     help='number of training epochs')
-parser.add_argument('--mode', type=str, default='test',
+parser.add_argument('--mode', type=str, default='demo',
                     help='mode to use',choices=('train','test','demo'))
-parser.add_argument('--img1', type=str, default=None,
+parser.add_argument('--img1', type=str, default='papa_tomas_crop.jpg',
                     help='parent image for demo')
-parser.add_argument('--img2', type=str, default=None,
+parser.add_argument('--img2', type=str, default='hijo_tomas_crop.jpg',
                     help='child imge for demo')
-parser.add_argument('--pair_type', type=str, default='fd',
+parser.add_argument('--pair_type', type=str, default='fs',
                     help='pair type for demo',choices=('fd','fs','md','ms'))
 
 
@@ -42,7 +42,7 @@ target_metric = "acc"
 
 # dataset_path = "/home/msrios/kinfacew/"
 # dataset_path = "/media/manuel/New Volume/Computer Vision/fiw"
-# dataset_path = "..\..\Data\FIW"
+args.data_path = "..\..\Data\FIW"
 kin_pairs = ["fd", "ms", "md", "fs"]
 kinfacew_set_name = "KinFaceW-II"
 kinfacew_n_folds = 5

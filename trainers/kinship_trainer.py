@@ -315,8 +315,15 @@ class KinshipTrainer:
     def demo(self,parent_path,child_path,pair_type):
         if parent_path is None:
             parent_path=self.get_random_image()
+        else:
+            parent_path = os.path.join(self.dataset_path,'test-faces',parent_path)
         if child_path is None:
             child_path=self.get_random_image()
+        else:
+            child_path = os.path.join(self.dataset_path,'test-faces',child_path)
+            
+        print(parent_path,child_path)
+        
         parent_image = np.asarray(Image.open(parent_path))
         child_image = np.asarray(Image.open(child_path))
         
@@ -333,6 +340,8 @@ class KinshipTrainer:
         output, _, _ = model(parent_image.float(), child_image.float())
         output = torch.sigmoid(output)
         
+        print(output[0].item())
+        
         if output[0].item()>best_thresh[pair_type]:
             print('KIN:',pair_type)
         else:
@@ -340,6 +349,7 @@ class KinshipTrainer:
             
     def get_random_image(self):
         test_ims = glob.glob(os.path.join(self.dataset_path,'test-faces','*.jpg'))
+        
         return test_ims[np.random.randint(0,len(test_ims))]
 
     def save_model(self, model, model_name):
