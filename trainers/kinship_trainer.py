@@ -379,7 +379,7 @@ class KinshipTrainer:
     
     def load_best_model(self,pair_type):
         model = KinFaceNet()
-        model.load_state_dict(torch.load(os.path.join('logs','kin_facenet_with_norm__fiw_BEST','best_model_'+pair_type+'.pth')))
+        model.load_state_dict(torch.load(os.path.join(self.dataset_path,'logs','kin_facenet_with_norm__fiw_BEST','best_model_'+pair_type+'.pth')))
         model.eval()
         return model
 
