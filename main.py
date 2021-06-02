@@ -22,11 +22,11 @@ parser.add_argument('--num_epochs', type=int, default=16,
                     help='number of training epochs')
 parser.add_argument('--mode', type=str, default='demo',
                     help='mode to use',choices=('train','test','demo'))
-parser.add_argument('--img1', type=str, default='papa_tomas_crop.jpg',
+parser.add_argument('--img1', type=str, default='suegra_manuel_crop.jpg',
                     help='parent image for demo')
-parser.add_argument('--img2', type=str, default='hijo_tomas_crop.jpg',
+parser.add_argument('--img2', type=str, default='hijo_manuel_crop.jpg',
                     help='child imge for demo')
-parser.add_argument('--pair_type', type=str, default='fs',
+parser.add_argument('--pair_type', type=str, default='ms',
                     help='pair type for demo',choices=('fd','fs','md','ms'))
 
 

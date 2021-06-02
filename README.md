@@ -42,3 +42,5 @@ Where the pair_type argument indicates the kinship relation to validate (choices
 Optional arguments are the test images to use, requiring only to specify the test image file name (not whole path):
 
 python main.py --mode demo --pair_type md --img1 face1.jpg --img2 face2.jpg
+
+For the demo, a positive verification will print "KIN: pair_type" in the terminal. A negative result prints "NO KIN". Both results print the predicted probability of kinship.

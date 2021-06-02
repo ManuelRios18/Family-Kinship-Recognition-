@@ -310,7 +310,8 @@ class KinshipTrainer:
                 test_evaluator.add_batch(list(output.detach().cpu().numpy()), list(labels.detach().cpu().numpy()))
             metrics = test_evaluator.get_metrics(self.target_metric)
             test_evaluator.save_best_metrics()
-            print(metrics)
+            print('Test metrics for ' + str(pair_type) + ':')
+            print('Acc: '+str(metrics['acc'])+' ,    F1-score: '+str(metrics['f1-score'])+' ,    AUC: '+str(metrics['auc']))
             
     def demo(self,parent_path,child_path,pair_type):
         if parent_path is None:
@@ -321,8 +322,6 @@ class KinshipTrainer:
             child_path=self.get_random_image()
         else:
             child_path = os.path.join(self.dataset_path,'test-faces',child_path)
-            
-        print(parent_path,child_path)
         
         parent_image = np.asarray(Image.open(parent_path))
         child_image = np.asarray(Image.open(child_path))
@@ -339,17 +338,15 @@ class KinshipTrainer:
         model = self.load_best_model(pair_type)
         output, _, _ = model(parent_image.float(), child_image.float())
         output = torch.sigmoid(output)
-        
-        print(output[0].item())
-        
-        if output[0].item()>best_thresh[pair_type]:
+
+        if output[0].item()>0.5:
             print('KIN:',pair_type)
         else:
             print('NO KIN')
+        print('Probability of kinship:',output[0].item())
             
     def get_random_image(self):
         test_ims = glob.glob(os.path.join(self.dataset_path,'test-faces','*.jpg'))
-        
         return test_ims[np.random.randint(0,len(test_ims))]
 
     def save_model(self, model, model_name):
@@ -405,5 +402,5 @@ class KinshipTrainer:
         color_space = "rgb"
         if "vgg" in self.model_name:
             color_space = "bgr"
-        print("Setting Color space to:", color_space)
+        # print("Setting Color space to:", color_space)
         return color_space
